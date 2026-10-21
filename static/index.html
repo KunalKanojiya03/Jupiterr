@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jupiterr Council</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23d9822b'/><path d='M3 12h26M2.5 17h27M4 22h24' stroke='%23f6d7a7' stroke-width='2.2'/></svg>">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+:root {
+  --bg: #f6f4f0; --panel: #ffffff; --panel-2: #f0ede7; --border: #e2ddd3;
+  --text: #1d1b18; --muted: #6b655b; --accent: #c4661a; --accent-soft: #f7e3cf;
+  --ok: #2f7d4f; --ok-soft: #dcefe2; --bad: #b3372b; --bad-soft: #f6dcd8;
+  --warn: #9a6a00; --warn-soft: #f5ead0; --code-bg: #0f1420;
+  --radius: 12px; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0f16; --panel: #141925; --panel-2: #1b2130; --border: #262e40;
+    --text: #e8e6e1; --muted: #9098a8; --accent: #e8913f; --accent-soft: #3a2614;
+    --ok: #5cc286; --ok-soft: #15301f; --bad: #ef7b6e; --bad-soft: #3a1915;
+    --warn: #e5b74f; --warn-soft: #33290f; --code-bg: #0a0d14;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c0f16; --panel: #141925; --panel-2: #1b2130; --border: #262e40;
+  --text: #e8e6e1; --muted: #9098a8; --accent: #e8913f; --accent-soft: #3a2614;
+  --ok: #5cc286; --ok-soft: #15301f; --bad: #ef7b6e; --bad-soft: #3a1915;
+  --warn: #e5b74f; --warn-soft: #33290f; --code-bg: #0a0d14;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+header { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 18px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+.brand small { color: var(--muted); display: block; font-size: 12.5px; }
+.planet { width: 34px; height: 34px; border-radius: 50%; flex: none;
+  background: repeating-linear-gradient(170deg, #d9822b 0 5px, #f2c38b 5px 8px, #b9641d 8px 12px, #f6d7a7 12px 14px); box-shadow: inset -6px -4px 10px rgba(0,0,0,.35); }
+.hdr-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pill { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.pill.ok { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
+.pill.bad { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+label.lbl { font-weight: 600; font-size: 13.5px; display: block; margin-bottom: 6px; }
+textarea { width: 100%; min-height: 150px; resize: vertical; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); font: inherit; }
+textarea:focus, input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+button { font: inherit; font-weight: 600; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  padding: 9px 16px; cursor: pointer; min-height: 40px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.examples { display: flex; gap: 6px; flex-wrap: wrap; }
+.examples button { font-size: 12.5px; font-weight: 500; padding: 4px 10px; min-height: 30px; color: var(--muted); }
+.stages { display: flex; flex-direction: column; gap: 4px; }
+.stage { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 8px 6px; border-radius: 8px; }
+.stage .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); margin-left: 4px; }
+.stage .name { font-weight: 600; font-size: 14px; }
+.stage .sub { color: var(--muted); font-size: 12px; display: block; font-weight: 400; }
+.stage .t { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+.stage.active { background: var(--accent-soft); }
+.stage.active .dot { border-color: var(--accent); border-top-color: transparent; animation: spin .9s linear infinite; }
+.stage.done .dot { background: var(--ok); border-color: var(--ok); }
+.stage.failed .dot { background: var(--bad); border-color: var(--bad); }
+.stage.rejected .dot { background: var(--warn); border-color: var(--warn); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .stage.active .dot { animation: none; background: var(--accent); } }
+.meter { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.bar { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; margin: 6px 0; }
+.bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+.kv { display: flex; justify-content: space-between; color: var(--muted); }
+.kv b { color: var(--text); font-weight: 600; font-family: var(--mono); font-size: 12.5px; }
+.side h3, .results h3 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.results { margin-top: 16px; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -4px -4px 14px; overflow-x: auto; }
+.tabs button { border: none; background: none; border-radius: 8px 8px 0 0; color: var(--muted); padding: 8px 14px; min-height: 38px; white-space: nowrap; border-bottom: 2px solid transparent; }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.tabs button .n { font-size: 11px; background: var(--panel-2); padding: 1px 6px; border-radius: 999px; margin-left: 4px; }
+.pane { display: none; }
+.pane.on { display: block; }
+.md { overflow-wrap: anywhere; }
+.md h1, .md h2 { font-size: 17px; margin: 18px 0 8px; }
+.md h3 { font-size: 15px; margin: 14px 0 6px; text-transform: none; letter-spacing: 0; color: var(--text); }
+.md code { font-family: var(--mono); font-size: 13px; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; }
+.md pre { background: var(--code-bg); color: #e6e6e6; padding: 12px; border-radius: 8px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; }
+.md table { border-collapse: collapse; display: block; overflow-x: auto; }
+.md th, .md td { border: 1px solid var(--border); padding: 5px 9px; text-align: left; }
+.code-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 12px; }
+@media (max-width: 700px) { .code-layout { grid-template-columns: minmax(0, 1fr); } .code-layout .filelist { display: none; } .filesel { display: block !important; } }
+.filesel { display: none; width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font: inherit; }
+.filelist { display: flex; flex-direction: column; gap: 2px; max-height: 560px; overflow-y: auto; }
+.filelist button { text-align: left; font-family: var(--mono); font-size: 12.5px; font-weight: 400; padding: 6px 8px; min-height: 0; border: none; background: none; border-radius: 6px; display: flex; gap: 6px; align-items: center; overflow-wrap: anywhere; }
+.filelist button.on { background: var(--accent-soft); }
+.st { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
+.st.pass { background: var(--ok); } .st.fail { background: var(--bad); } .st.warn { background: var(--warn); }
+.viewer { min-width: 0; }
+.viewer .fhead { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-family: var(--mono); font-size: 12.5px; color: var(--muted); margin-bottom: 6px; flex-wrap: wrap; }
+.viewer pre { margin: 0; background: var(--code-bg); border-radius: 10px; padding: 14px; overflow: auto; max-height: 560px; font-size: 13px; line-height: 1.5; }
+.viewer pre code { font-family: var(--mono); color: #e6e6e6; background: none !important; padding: 0 !important; }
+.verdict { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.verdict.approve { background: var(--ok-soft); color: var(--ok); }
+.verdict.reject { background: var(--bad-soft); color: var(--bad); }
+.verdict b { font-size: 18px; }
+.issue { border-left: 3px solid var(--border); padding: 6px 10px; margin: 8px 0; background: var(--panel-2); border-radius: 0 8px 8px 0; }
+.issue.critical { border-color: var(--bad); } .issue.major { border-color: var(--warn); } .issue.minor { border-color: var(--muted); }
+.issue .sev { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.issue .fix { color: var(--muted); font-size: 13.5px; }
+.log { font-family: var(--mono); font-size: 12.5px; max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.log div { padding: 3px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
+.log .w { color: var(--warn); } .log .e { color: var(--bad); } .log .k { color: var(--ok); }
+.empty { color: var(--muted); padding: 24px 0; text-align: center; }
+.err { background: var(--bad-soft); color: var(--bad); padding: 10px 12px; border-radius: 10px; margin-top: 12px; display: none; overflow-wrap: anywhere; }
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+.modal .card { width: 100%; max-width: 380px; }
+.modal input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); font: inherit; margin: 8px 0 12px; }
+.chk { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13.5px; }
+.chk select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px; font: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="planet" aria-hidden="true"></div>
+      <div><h1>Jupiterr</h1><small>Autonomous multi-agent AI council</small></div>
+    </div>
+    <div class="hdr-right">
+      <span class="pill" id="pillKey">checking server…</span>
+      <span class="pill" id="pillAuth">—</span>
+      <button id="themeBtn" title="Toggle theme" style="min-height:30px;padding:4px 10px">◐</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <label class="lbl" for="brief">Project brief</label>
+      <textarea id="brief" placeholder="Describe what you want built: features, constraints, preferred stack, anything the council should know…"></textarea>
+      <div class="row examples" id="examples"></div>
+      <div class="row">
+        <button class="primary" id="runBtn">Convene the council</button>
+        <button id="resumeBtn" style="display:none">Resume from failed stage</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <span class="chk"><label for="rounds">QA revisions</label>
+          <select id="rounds"><option value="0">0</option><option value="1">1</option><option value="2" selected>2</option></select></span>
+      </div>
+      <div class="err" id="err"></div>
+    </section>
+
+    <aside class="card side">
+      <h3>Council state</h3>
+      <div class="stages" id="stages"></div>
+      <div class="meter">
+        <div class="kv"><span>Run budget</span><b id="mBudget">—</b></div>
+        <div class="bar"><i id="mBar"></i></div>
+        <div class="kv"><span>Est. spend</span><b id="mCost">$0.0000</b></div>
+        <div class="kv"><span>Tokens in / out</span><b id="mTok">0 / 0</b></div>
+        <div class="kv"><span>Model calls</span><b id="mCalls">0</b></div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="card results">
+    <div class="tabs" id="tabs">
+      <button data-tab="plan" class="on">Plan</button>
+      <button data-tab="arch">Architecture</button>
+      <button data-tab="code">Code <span class="n" id="nFiles">0</span></button>
+      <button data-tab="qa">QA report</button>
+      <button data-tab="log">Telemetry</button>
+    </div>
+    <div class="pane on" id="pane-plan"><div class="empty">The Project Manager's plan will appear here.</div></div>
+    <div class="pane" id="pane-arch"><div class="empty">The Architect's blueprint will appear here.</div></div>
+    <div class="pane" id="pane-code"><div class="empty">Generated source files will appear here.</div></div>
+    <div class="pane" id="pane-qa"><div class="empty">The QA verdict will appear here.</div></div>
+    <div class="pane" id="pane-log"><div class="log" id="log"></div></div>
+  </section>
+</div>
+
+<div class="modal" id="modal">
+  <div class="card">
+    <h3 style="margin:0 0 4px">Enter passcode</h3>
+    <div style="color:var(--muted);font-size:13.5px">This council spends real API credit, so it is locked.</div>
+    <input type="password" id="pass" autocomplete="current-password" placeholder="Passcode">
+    <div class="err" id="passErr"></div>
+    <button class="primary" id="passBtn" style="width:100%">Unlock</button>
+  </div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const md = (s) => (window.marked && window.DOMPurify) ? DOMPurify.sanitize(marked.parse(String(s ?? ""))) : `<pre>${esc(s)}</pre>`;
+
+const STAGES = [
+  ["plan", "Planning", "Project Manager"],
+  ["arch", "Architecting", "System Architect"],
+  ["code", "Coding", "Senior Developer"],
+  ["validate", "Validating", "Syntax & completeness checks"],
+  ["review", "Reviewing", "Adversarial QA"],
+  ["final", "Finalizing", "Package deliverables"],
+];
+const EXAMPLES = {
+  "URL shortener API": "Build a URL shortener REST API in Python with FastAPI and SQLite. Endpoints: create short link (optional custom alias, optional expiry), redirect, stats (click count, created date). Validate URLs, prevent alias collisions, include pytest tests and a README.",
+  "Expense tracker CLI": "Build a command-line expense tracker in Python. Add/list/delete expenses with category, amount and date; monthly summary per category; export to CSV; data stored in a local JSON file. Use argparse, no third-party dependencies, include unit tests.",
+  "Kanban web app": "Build a single-page Kanban board in vanilla HTML/CSS/JavaScript (no build step). Three default columns, add/edit/delete cards, drag and drop between columns, persist to localStorage, responsive layout for mobile, keyboard accessible.",
+};
+
+let state = null, abortCtl = null, health = null, timers = {};
+
+function initStages() {
+  $("#stages").innerHTML = STAGES.map(([id, name, sub]) =>
+    `<div class="stage" id="st-${id}"><span class="dot"></span><span class="name">${name}<span class="sub" id="sub-${id}">${sub}</span></span><span class="t" id="t-${id}"></span></div>`).join("");
+}
+function setStage(id, status, sub) {
+  const el = $("#st-" + id);
+  el.className = "stage " + (status || "");
+  if (sub !== undefined) $("#sub-" + id).textContent = sub;
+  if (status === "active") {
+    const t0 = Date.now();
+    clearInterval(timers[id]);
+    timers[id] = setInterval(() => { $("#t-" + id).textContent = ((Date.now() - t0) / 1000).toFixed(0) + "s"; }, 500);
+  } else clearInterval(timers[id]);
+}
+function log(msg, cls = "") {
+  const d = document.createElement("div");
+  d.className = cls;
+  d.textContent = `${new Date().toLocaleTimeString()}  ${msg}`;
+  $("#log").appendChild(d);
+  $("#log").scrollTop = 1e9;
+}
+function showErr(msg) { const e = $("#err"); e.textContent = msg; e.style.display = msg ? "block" : "none"; }
+function updateMeter(led) {
+  const budget = health?.budget_usd ?? 0.5;
+  $("#mBudget").textContent = "$" + budget.toFixed(2);
+  if (!led) return;
+  $("#mCost").textContent = "$" + led.cost_usd.toFixed(4);
+  $("#mTok").textContent = `${led.tokens_in.toLocaleString()} / ${led.tokens_out.toLocaleString()}`;
+  $("#mCalls").textContent = led.calls;
+  $("#mBar").style.width = Math.min(100, (led.cost_usd / budget) * 100) + "%";
+}
+
+/* ---------- server calls ---------- */
+function headers() { return { "Content-Type": "application/json", "X-Passcode": store.get("jupiterr:pass") || "" }; }
+
+async function api(stage, extra) {
+  const body = { stage, brief: state.brief, plan: state.plan, architecture: state.arch, files: state.files, qa: state.qa, ledger: state.ledger, sig: state.sig, ...extra };
+  const r = await fetch("/api/step", { method: "POST", headers: headers(), body: JSON.stringify(body), signal: abortCtl.signal });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (r.status === 401) { askPass(); throw new Error("Passcode required"); }
+    const d = data.detail;
+    (d?.events || []).forEach((e) => log(e, "w"));
+    if (d?.ledger) { state.ledger = d.ledger; state.sig = d.sig; updateMeter(d.ledger); }
+    const msg = typeof d === "string" ? d : d?.message || (Array.isArray(d) ? d.map((x) => x.msg).join("; ") : `HTTP ${r.status}`);
+    throw new Error(msg);
+  }
+  state.ledger = data.ledger; state.sig = data.sig;
+  updateMeter(data.ledger);
+  const t = data.telemetry;
+  t.events.forEach((e) => log(`${t.role}: ${e}`, "w"));
+  log(`${t.role} ← ${t.model}  ${t.tokens_in.toLocaleString()} in / ${t.tokens_out.toLocaleString()} out  $${t.cost_usd.toFixed(4)}  ${t.elapsed_s}s`, "k");
+  return data.output;
+}
+
+/* ---------- orchestration ---------- */
+function persist() { if (state) store.set("jupiterr:last", JSON.stringify(state)); }
+async function runCouncil(resume = false) {
+  if (!resume) {
+    const brief = $("#brief").value.trim();
+    if (brief.length < 10) { showErr("Write a brief of at least a few words."); return; }
+    state = { brief, plan: null, arch: null, files: null, qa: null, ledger: null, sig: null, history: [], round: 0, needDev: true };
+    initStages(); $("#log").innerHTML = ""; renderAll();
+    log("Council convened. Run budget $" + (health?.budget_usd ?? 0.5).toFixed(2));
+  } else {
+    log("Resuming run from the failed stage…");
+  }
+  showErr(""); $("#resumeBtn").style.display = "none";
+  const maxRounds = Math.min(+$("#rounds").value, health?.max_qa_rounds ?? 2);
+  abortCtl = new AbortController();
+  $("#runBtn").disabled = true; $("#stopBtn").disabled = false;
+  let current = "plan";
+  try {
+    if (!state.plan) {
+      setStage("plan", "active");
+      state.plan = await api("manager");
+      setStage("plan", "done", `${(state.plan.tasks || []).length} tasks · ${(state.plan.acceptance_criteria || []).length} criteria`);
+      renderPlan(); switchTab("plan"); persist();
+    }
+
+    current = "arch";
+    if (!state.arch) {
+      setStage("arch", "active");
+      state.arch = await api("architect");
+      setStage("arch", "done", `${(state.arch.file_tree || []).length} files planned`);
+      renderArch(); switchTab("arch"); persist();
+    }
+
+    for (;;) {
+      const round = state.round;
+      if (state.needDev) {
+        current = "code";
+        setStage("code", "active", round ? `Revision ${round} — fixing QA issues` : "Senior Developer");
+        const dev = await api("developer");
+        state.files = dev.files; state.validation = dev.validation; state.needDev = false;
+        const v = dev.validation.summary;
+        setStage("code", "done", `${dev.files.length} files${round ? ` · revision ${round}` : ""}`);
+        setStage("validate", v.fail || v.missing ? "rejected" : "done", `${v.pass} pass · ${v.warn} warn · ${v.fail} fail · ${v.missing} missing`);
+        log(`Validation: ${v.pass} pass, ${v.warn} warn, ${v.fail} fail, ${v.missing} missing`, v.fail || v.missing ? "w" : "k");
+        renderCode(); switchTab("code"); persist();
+      }
+
+      current = "review"; setStage("review", "active", round ? `Re-review ${round}` : "Adversarial QA");
+      state.qa = await api("qa");
+      state.validation = state.qa.validation;
+      state.history.push({ round, verdict: state.qa.verdict, score: state.qa.score, issues: (state.qa.issues || []).length });
+      renderQA(); persist();
+      if (state.qa.gate_override) log("Gate: " + state.qa.gate_override, "w");
+      if (state.qa.verdict === "approve") { setStage("review", "done", `Approved · score ${state.qa.score ?? "?"}`); break; }
+      if (round >= maxRounds) { setStage("review", "rejected", `Rejected after ${round} revision(s)`); log("Retry ceiling reached; delivering best effort with QA report.", "w"); break; }
+      setStage("review", "rejected", `Rejected · ${(state.qa.issues || []).length} issues → back to Developer`);
+      log(`QA rejected (${(state.qa.issues || []).length} issues). Sending back to Developer.`, "w");
+      state.round = round + 1; state.needDev = true;
+    }
+    current = "final"; setStage("final", "done", state.qa.verdict === "approve" ? "Ready to download" : "Delivered with open issues");
+    switchTab(state.qa.verdict === "approve" ? "code" : "qa");
+    log("Council adjourned.", "k");
+    state.done = true; persist();
+  } catch (e) {
+    const aborted = e.name === "AbortError";
+    setStage(current, "failed", aborted ? "Stopped" : "Failed");
+    log((aborted ? "Stopped by user" : "Error: " + e.message), "e");
+    if (!aborted) showErr(e.message);
+    // A run can only resume while the signed ledger exists (i.e. the manager stage succeeded).
+    if (state.ledger) $("#resumeBtn").style.display = "";
+    persist();
+  } finally {
+    $("#runBtn").disabled = false; $("#stopBtn").disabled = true;
+    renderCode();
+    refreshHealth().catch(() => {});
+  }
+}
+
+/* ---------- rendering ---------- */
+function list(items) { return (items || []).length ? "<ul>" + items.map((i) => `<li>${esc(i)}</li>`).join("") + "</ul>" : "<p>—</p>"; }
+
+function renderPlan() {
+  const p = state?.plan; if (!p) return $("#pane-plan").innerHTML = `<div class="empty">The Project Manager's plan will appear here.</div>`;
+  $("#pane-plan").innerHTML = `<div class="md">
+    <h2>${esc(p.project_name)}</h2><p>${esc(p.summary)}</p>
+    <h3>Tech stack</h3><p>${(p.tech_stack || []).map((t) => `<code>${esc(t)}</code>`).join(" ")}</p>
+    <h3>Tasks</h3><table><thead><tr><th>ID</th><th>Task</th><th>Depends on</th></tr></thead><tbody>
+    ${(p.tasks || []).map((t) => `<tr><td>${esc(t.id)}</td><td><b>${esc(t.title)}</b><br><span style="color:var(--muted)">${esc(t.detail)}</span></td><td>${esc((t.depends_on || []).join(", ") || "—")}</td></tr>`).join("")}
+    </tbody></table>
+    <h3>Acceptance criteria</h3>${list(p.acceptance_criteria)}
+    <h3>Assumptions</h3>${list(p.assumptions)}
+    <h3>Out of scope</h3>${list(p.out_of_scope)}</div>`;
+}
+
+function renderArch() {
+  const a = state?.arch; if (!a) return $("#pane-arch").innerHTML = `<div class="empty">The Architect's blueprint will appear here.</div>`;
+  $("#pane-arch").innerHTML = `<div class="md">
+    <h2>Overview</h2>${md(a.overview_md)}
+    <h2>File tree</h2><table><tbody>${(a.file_tree || []).map((f) => `<tr><td><code>${esc(f.path)}</code></td><td>${esc(f.purpose)}</td></tr>`).join("")}</tbody></table>
+    <h2>Interfaces</h2>${md(a.interfaces_md)}
+    <h2>Data models</h2>${md(a.data_models_md)}
+    <h2>Edge cases</h2>${list(a.edge_cases)}
+    <h2>Dependencies</h2>${list((a.dependencies || []).map((d) => `${d.name} ${d.version || ""} — ${d.why || ""}`))}
+    <h2>Run instructions</h2>${md(a.run_instructions)}</div>`;
+}
+
+let activeFile = 0;
+function renderCode() {
+  const files = state?.files;
+  $("#nFiles").textContent = files ? files.length : 0;
+  if (!files?.length) return $("#pane-code").innerHTML = `<div class="empty">Generated source files will appear here.</div>`;
+  const vmap = Object.fromEntries((state.validation?.results || []).map((r) => [r.path, r]));
+  activeFile = Math.min(activeFile, files.length - 1);
+  const busy = !$("#runBtn").disabled ? "" : "disabled";
+  $("#pane-code").innerHTML = `
+    <div class="row" style="margin:0 0 12px;justify-content:space-between">
+      <span style="color:var(--muted);font-size:13.5px">${files.length} files${state.validation?.missing?.length ? ` · <span style="color:var(--bad)">missing: ${esc(state.validation.missing.join(", "))}</span>` : ""}</span>
+      <button class="primary" id="zipBtn" ${busy}>Download .zip</button>
+    </div>
+    <div class="code-layout">
+      <div><div class="filelist">${files.map((f, i) => `<button data-i="${i}" class="${i === activeFile ? "on" : ""}"><span class="st ${vmap[f.path]?.status || ""}"></span>${esc(f.path)}</button>`).join("")}</div>
+        <select class="filesel" id="filesel">${files.map((f, i) => `<option value="${i}" ${i === activeFile ? "selected" : ""}>${esc(f.path)}</option>`).join("")}</select></div>
+      <div class="viewer" id="viewer"></div>
+    </div>`;
+  $("#pane-code").querySelectorAll(".filelist button").forEach((b) => b.onclick = () => { activeFile = +b.dataset.i; renderCode(); });
+  $("#filesel").onchange = (e) => { activeFile = +e.target.value; renderCode(); };
+  $("#zipBtn").onclick = downloadZip;
+  const f = files[activeFile], v = vmap[f.path];
+  const viewer = $("#viewer");
+  viewer.innerHTML = `<div class="fhead"><span>${esc(f.path)}</span><span>${v ? `<span class="st ${v.status}" style="display:inline-block"></span> ${esc(v.status)} — ${esc(v.detail)}` : ""}</span></div><pre><code></code></pre>`;
+  const code = viewer.querySelector("code");
+  code.textContent = f.content;
+  if (window.hljs && f.content.length < 200000) {
+    const lang = (f.language || "").toLowerCase();
+    if (lang && hljs.getLanguage(lang)) code.className = "language-" + lang;
+    try { hljs.highlightElement(code); } catch {}
+  }
+}
+
+function renderQA() {
+  const q = state?.qa; if (!q) return $("#pane-qa").innerHTML = `<div class="empty">The QA verdict will appear here.</div>`;
+  const hist = (state.history || []).map((h) => `Round ${h.round}: ${h.verdict} (${h.score ?? "?"}, ${h.issues} issues)`).join(" → ");
+  $("#pane-qa").innerHTML = `
+    <div class="verdict ${q.verdict === "approve" ? "approve" : "reject"}"><b>${q.verdict === "approve" ? "APPROVED" : "REJECTED"}</b><span>Score ${esc(q.score ?? "?")}/100</span>${q.gate_override ? `<span>· ${esc(q.gate_override)}</span>` : ""}</div>
+    <div class="md"><p>${esc(q.summary)}</p>${hist ? `<p style="color:var(--muted);font-size:13px">${esc(hist)}</p>` : ""}
+    <h3>Issues (${(q.issues || []).length})</h3>
+    ${(q.issues || []).map((i) => `<div class="issue ${esc(i.severity)}"><span class="sev">${esc(i.severity)}</span> · <code>${esc(i.file)}</code><div>${esc(i.description)}</div><div class="fix">Fix: ${esc(i.fix)}</div></div>`).join("") || "<p>No issues.</p>"}
+    <h3>Acceptance criteria</h3>
+    <table><tbody>${(q.criteria || []).map((c) => `<tr><td>${c.met ? "✅" : "❌"}</td><td>${esc(c.criterion)}<br><span style="color:var(--muted);font-size:13px">${esc(c.note)}</span></td></tr>`).join("")}</tbody></table></div>`;
+}
+function renderAll() { renderPlan(); renderArch(); renderCode(); renderQA(); }
+
+async function downloadZip() {
+  const btn = $("#zipBtn"); btn.disabled = true; btn.textContent = "Packaging…";
+  try {
+    const r = await fetch("/api/zip", { method: "POST", headers: headers(), body: JSON.stringify({
+      project_name: state.plan?.project_name || "council-project", files: state.files, plan: state.plan, architecture: state.arch, qa: state.qa, ledger: state.ledger }) });
+    if (!r.ok) throw new Error("zip failed: HTTP " + r.status);
+    const blob = await r.blob();
+    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: (state.plan?.project_name || "council-project") + ".zip" });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) { showErr(e.message); }
+  finally { btn.disabled = false; btn.textContent = "Download .zip"; }
+}
+
+function switchTab(id) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === id));
+  document.querySelectorAll(".pane").forEach((p) => p.classList.toggle("on", p.id === "pane-" + id));
+}
+
+/* ---------- model health ---------- */
+async function refreshHealth() {
+  health = await (await fetch("/api/health")).json();
+  const pill = $("#pillKey");
+  if (!health.gemini_key_configured) { pill.textContent = "Gemini key missing"; pill.className = "pill bad"; return; }
+  const st = health.model_status || [];
+  const ok = st.find((m) => m.status === "ok");
+  const benched = st.filter((m) => m.status !== "ok");
+  pill.textContent = ok ? `Gemini: ${ok.model}${benched.length ? ` · ${benched.length} benched` : ""}` : "All models benched";
+  pill.className = "pill " + (ok ? "ok" : "bad");
+  pill.title = st.map((m) => `${m.model}: ${m.status === "ok" ? "ok" : `${m.status} (${Math.ceil(m.for_s / 60)} min)`}`).join("\n");
+}
+
+/* ---------- auth ---------- */
+function askPass() { $("#modal").style.display = "flex"; $("#pass").focus(); }
+async function checkAuth() {
+  const r = await fetch("/api/auth", { headers: headers() });
+  $("#pillAuth").textContent = r.ok ? (health.auth_required ? "unlocked" : "local · no passcode") : "locked";
+  $("#pillAuth").className = "pill " + (r.ok ? "ok" : "bad");
+  return r.ok;
+}
+$("#passBtn").onclick = async () => {
+  store.set("jupiterr:pass", $("#pass").value);
+  if (await checkAuth()) { $("#modal").style.display = "none"; $("#passErr").style.display = "none"; }
+  else { $("#passErr").textContent = "Wrong passcode."; $("#passErr").style.display = "block"; }
+};
+$("#pass").onkeydown = (e) => { if (e.key === "Enter") $("#passBtn").click(); };
+
+/* ---------- boot ---------- */
+$("#runBtn").onclick = () => runCouncil(false);
+$("#resumeBtn").onclick = () => runCouncil(true);
+$("#stopBtn").onclick = () => abortCtl?.abort();
+document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => switchTab(b.dataset.tab));
+$("#examples").innerHTML = Object.keys(EXAMPLES).map((k) => `<button data-k="${esc(k)}">${esc(k)}</button>`).join("");
+$("#examples").querySelectorAll("button").forEach((b) => b.onclick = () => { $("#brief").value = EXAMPLES[b.dataset.k]; });
+$("#themeBtn").onclick = () => {
+  const dark = document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.dataset.theme = dark ? "light" : "dark";
+  store.set("jupiterr:theme", document.documentElement.dataset.theme);
+};
+if (store.get("jupiterr:theme")) document.documentElement.dataset.theme = store.get("jupiterr:theme");
+initStages();
+
+(async () => {
+  try {
+    await refreshHealth();
+    $("#rounds").value = String(Math.min(2, health.max_qa_rounds));
+    updateMeter(null);
+    if (!(await checkAuth())) askPass();
+  } catch { $("#pillKey").textContent = "server unreachable"; $("#pillKey").className = "pill bad"; }
+  try {
+    const last = JSON.parse(store.get("jupiterr:last") || "null");
+    if (last?.plan) {
+      state = last; $("#brief").value = last.brief; renderAll(); updateMeter(last.ledger);
+      log("Restored your last run from this browser.");
+      if (!last.done && last.ledger) { $("#resumeBtn").style.display = ""; log("That run did not finish. Press Resume to continue it.", "w"); }
+    }
+  } catch {}
+})();
+</script>
+</body>
+</html>
