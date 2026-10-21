@@ -113,6 +113,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .issue.critical { border-color: var(--bad); } .issue.major { border-color: var(--warn); } .issue.minor { border-color: var(--muted); }
 .issue .sev { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
 .issue .fix { color: var(--muted); font-size: 13.5px; }
+.report { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.report textarea { min-height: 90px; }
 .log { font-family: var(--mono); font-size: 12.5px; max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
 .log div { padding: 3px 0; border-bottom: 1px dashed var(--border); overflow-wrap: anywhere; }
 .log .w { color: var(--warn); } .log .e { color: var(--bad); } .log .k { color: var(--ok); }
@@ -255,23 +257,57 @@ function updateMeter(led) {
 function headers() { return { "Content-Type": "application/json", "X-Passcode": store.get("jupiterr:pass") || "" }; }
 
 async function api(stage, extra) {
-  const body = { stage, brief: state.brief, plan: state.plan, architecture: state.arch, files: state.files, qa: state.qa, ledger: state.ledger, sig: state.sig, ...extra };
+  const body = { stage, brief: state.brief, plan: state.plan, architecture: state.arch, files: state.files, qa: state.qa, ledger: state.ledger, sig: state.sig, user_feedback: state.feedback || null, ...extra };
   const r = await fetch("/api/step", { method: "POST", headers: headers(), body: JSON.stringify(body), signal: abortCtl.signal });
-  const data = await r.json().catch(() => ({}));
   if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
     if (r.status === 401) { askPass(); throw new Error("Passcode required"); }
-    const d = data.detail;
-    (d?.events || []).forEach((e) => log(e, "w"));
-    if (d?.ledger) { state.ledger = d.ledger; state.sig = d.sig; updateMeter(d.ledger); }
-    const msg = typeof d === "string" ? d : d?.message || (Array.isArray(d) ? d.map((x) => x.msg).join("; ") : `HTTP ${r.status}`);
-    throw new Error(msg);
+    failWith(data.detail, r.status);
   }
+  // The server streams NDJSON: log / progress / ping events, then exactly one result or error.
+  const role = ROLE_TITLES[stage], uiStage = STAGE_UI[stage];
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf = "", data = null;
+  const handle = (ev) => {
+    if (ev.type === "log") log(`${role}: ${ev.msg}`, "w");
+    else if (ev.type === "progress") $("#sub-" + uiStage).textContent = progressText(ev);
+    else if (ev.type === "error") failWith(ev.detail, ev.status);
+    else if (ev.type === "result") data = ev.data;
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (line) handle(JSON.parse(line));
+    }
+  }
+  if (buf.trim()) handle(JSON.parse(buf));
+  if (!data) throw new Error("connection closed before the stage finished — press Resume");
   state.ledger = data.ledger; state.sig = data.sig;
   updateMeter(data.ledger);
   const t = data.telemetry;
-  t.events.forEach((e) => log(`${t.role}: ${e}`, "w"));
   log(`${t.role} ← ${t.model}  ${t.tokens_in.toLocaleString()} in / ${t.tokens_out.toLocaleString()} out  $${t.cost_usd.toFixed(4)}  ${t.elapsed_s}s`, "k");
   return data.output;
+}
+
+const ROLE_TITLES = { manager: "Project Manager", architect: "System Architect", developer: "Senior Developer", qa: "QA Reviewer" };
+const STAGE_UI = { manager: "plan", architect: "arch", developer: "code", qa: "review" };
+
+function progressText(ev) {
+  if (!ev.chars) return `${ev.model} · thinking…`;
+  const k = (ev.chars / 1000).toFixed(1) + "k chars";
+  if (ev.file) return `${ev.model} · writing ${ev.file} (${ev.files_done} done) · ${k}`;
+  return `${ev.model} · ${k}`;
+}
+
+function failWith(d, status) {
+  if (d?.ledger) { state.ledger = d.ledger; state.sig = d.sig; updateMeter(d.ledger); }
+  const msg = typeof d === "string" ? d : d?.message || (Array.isArray(d) ? d.map((x) => x.msg).join("; ") : `HTTP ${status}`);
+  throw new Error(msg);
 }
 
 /* ---------- orchestration ---------- */
@@ -283,7 +319,7 @@ async function runCouncil(resume = false) {
     state = { brief, plan: null, arch: null, files: null, qa: null, ledger: null, sig: null, history: [], round: 0, needDev: true };
     initStages(); $("#log").innerHTML = ""; renderAll();
     log("Council convened. Run budget $" + (health?.budget_usd ?? 0.5).toFixed(2));
-  } else {
+  } else if (!state.feedback || state.round !== state.cycleStart || !state.needDev) {
     log("Resuming run from the failed stage…");
   }
   showErr(""); $("#resumeBtn").style.display = "none";
@@ -311,7 +347,7 @@ async function runCouncil(resume = false) {
       const round = state.round;
       if (state.needDev) {
         current = "code";
-        setStage("code", "active", round ? `Revision ${round} — fixing QA issues` : "Senior Developer");
+        setStage("code", "active", state.feedback && round === state.cycleStart ? "Fixing your reported problem" : round ? `Revision ${round} — fixing QA issues` : "Senior Developer");
         const dev = await api("developer");
         state.files = dev.files; state.validation = dev.validation; state.needDev = false;
         const v = dev.validation.summary;
@@ -328,7 +364,7 @@ async function runCouncil(resume = false) {
       renderQA(); persist();
       if (state.qa.gate_override) log("Gate: " + state.qa.gate_override, "w");
       if (state.qa.verdict === "approve") { setStage("review", "done", `Approved · score ${state.qa.score ?? "?"}`); break; }
-      if (round >= maxRounds) { setStage("review", "rejected", `Rejected after ${round} revision(s)`); log("Retry ceiling reached; delivering best effort with QA report.", "w"); break; }
+      if (round - (state.cycleStart || 0) >= maxRounds) { setStage("review", "rejected", `Rejected after ${round} revision(s)`); log("Retry ceiling reached; delivering best effort with QA report.", "w"); break; }
       setStage("review", "rejected", `Rejected · ${(state.qa.issues || []).length} issues → back to Developer`);
       log(`QA rejected (${(state.qa.issues || []).length} issues). Sending back to Developer.`, "w");
       state.round = round + 1; state.needDev = true;
@@ -336,6 +372,7 @@ async function runCouncil(resume = false) {
     current = "final"; setStage("final", "done", state.qa.verdict === "approve" ? "Ready to download" : "Delivered with open issues");
     switchTab(state.qa.verdict === "approve" ? "code" : "qa");
     log("Council adjourned.", "k");
+    if (state.feedback) { (state.reports ||= []).push({ text: state.feedback, verdict: state.qa.verdict }); state.feedback = null; }
     state.done = true; persist();
   } catch (e) {
     const aborted = e.name === "AbortError";
@@ -422,7 +459,28 @@ function renderQA() {
     <h3>Issues (${(q.issues || []).length})</h3>
     ${(q.issues || []).map((i) => `<div class="issue ${esc(i.severity)}"><span class="sev">${esc(i.severity)}</span> · <code>${esc(i.file)}</code><div>${esc(i.description)}</div><div class="fix">Fix: ${esc(i.fix)}</div></div>`).join("") || "<p>No issues.</p>"}
     <h3>Acceptance criteria</h3>
-    <table><tbody>${(q.criteria || []).map((c) => `<tr><td>${c.met ? "✅" : "❌"}</td><td>${esc(c.criterion)}<br><span style="color:var(--muted);font-size:13px">${esc(c.note)}</span></td></tr>`).join("")}</tbody></table></div>`;
+    <table><tbody>${(q.criteria || []).map((c) => `<tr><td>${c.met ? "✅" : "❌"}</td><td>${esc(c.criterion)}<br><span style="color:var(--muted);font-size:13px">${esc(c.note)}</span></td></tr>`).join("")}</tbody></table>
+    ${(state.reports || []).length ? `<h3>Problems you reported</h3>${state.reports.map((r) => `<div class="issue critical"><span class="sev">${r.verdict === "approve" ? "fixed · QA approved" : "still open"}</span><div>${esc(r.text)}</div></div>`).join("")}` : ""}
+    </div>
+    <div class="report">
+      <label class="lbl" for="fbText">Found a problem the council missed?</label>
+      <textarea id="fbText" placeholder="Describe what went wrong, or paste the error or stack trace. For example: 'python main.py list crashes with KeyError: amount when the JSON file is empty'"></textarea>
+      <div class="row"><button class="primary" id="fbBtn" ${state.ledger ? "" : "disabled"}>Send back to the council</button>
+        <span style="color:var(--muted);font-size:13px">The Developer fixes it, then validation and QA re-check the fix.</span></div>
+    </div>`;
+  $("#fbBtn").onclick = reportProblem;
+  $("#fbBtn").disabled = !state.ledger || $("#runBtn").disabled;
+}
+
+function reportProblem() {
+  const text = $("#fbText").value.trim();
+  if (text.length < 5) { $("#fbText").focus(); return; }
+  state.feedback = text;
+  state.round = (state.round || 0) + 1; state.cycleStart = state.round;
+  state.history ||= []; state.needDev = true; state.done = false;
+  ["code", "validate", "review", "final"].forEach((id) => setStage(id, "", ""));
+  log("You reported a problem. Sending it back to the Developer.", "w");
+  runCouncil(true);
 }
 function renderAll() { renderPlan(); renderArch(); renderCode(); renderQA(); }
 

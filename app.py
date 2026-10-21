@@ -9,6 +9,9 @@ import hmac
 import io
 import json
 import os
+import queue
+import re
+import threading
 import time
 import zipfile
 from pathlib import Path
@@ -38,6 +41,7 @@ from council import agents, ledger as ledgers, providers, validate  # noqa: E402
 
 RUN_BUDGET_USD = float(os.environ.get("RUN_BUDGET_USD", "0.50"))
 MAX_QA_ROUNDS = int(os.environ.get("MAX_QA_ROUNDS", "2"))
+MAX_FEEDBACK_ROUNDS = int(os.environ.get("MAX_FEEDBACK_ROUNDS", "6"))
 STEP_DEADLINE_S = float(os.environ.get("STEP_DEADLINE_S", "270"))
 # Estimated USD per 1M tokens. Placeholders: set these from your Gemini pricing page.
 PRICE_IN = float(os.environ.get("PRICE_PER_MTOK_IN", "0.50"))
@@ -72,6 +76,7 @@ class StepRequest(BaseModel):
     qa: Optional[dict] = None
     ledger: Optional[dict] = None
     sig: Optional[str] = None
+    user_feedback: Optional[str] = Field(default=None, max_length=8000)
 
 
 class ZipRequest(BaseModel):
@@ -133,13 +138,8 @@ def _sanitize_files(files):
     return out
 
 
-@app.post("/api/step", dependencies=[Depends(require_passcode)])
-def step(req: StepRequest):
-    started = time.monotonic()
-    deadline = started + STEP_DEADLINE_S
-    events = []
-    log = events.append
-
+def _prepare(req: StepRequest):
+    """Checks that must fail with a real HTTP status, before the response starts streaming."""
     # Ledger: a manager call opens a new run; every later stage must present a valid one.
     if req.stage == "manager":
         led, _ = ledgers.new_ledger()
@@ -155,10 +155,38 @@ def step(req: StepRequest):
             raise HTTPException(400, "stage 'qa' requires files")
     if led["cost_usd"] >= RUN_BUDGET_USD:
         raise HTTPException(402, f"run budget of ${RUN_BUDGET_USD:.2f} exhausted (spent ${led['cost_usd']:.4f})")
-    if req.stage == "developer":
+    if req.stage == "developer" and req.user_feedback:
+        # Fixing a problem the user reported has its own allowance, separate from QA revisions.
+        if led.get("feedback_rounds", 0) >= MAX_FEEDBACK_ROUNDS:
+            raise HTTPException(409, f"fix limit reached ({MAX_FEEDBACK_ROUNDS} developer passes on reported "
+                                     "problems for this run); start a new run with the problem in the brief")
+        led["feedback_rounds"] = led.get("feedback_rounds", 0) + 1
+    elif req.stage == "developer":
         if led["dev_rounds"] >= MAX_QA_ROUNDS + 1:
             raise HTTPException(409, f"retry ceiling reached ({MAX_QA_ROUNDS} QA revisions)")
         led["dev_rounds"] += 1
+    return led
+
+
+def _run(req: StepRequest, led, emit, cancel):
+    started = time.monotonic()
+    deadline = started + STEP_DEADLINE_S
+    events = []
+    last_progress = [0.0]
+
+    def log(msg):
+        events.append(msg)
+        emit({"type": "log", "msg": msg})
+
+    def on_progress(model, text):
+        now = time.monotonic()
+        if text:  # throttle token updates; "waiting on model" notices always go through
+            if now - last_progress[0] < 0.8:
+                return
+            last_progress[0] = now
+        paths = PATH_RE.findall(text)
+        emit({"type": "progress", "model": model, "chars": len(text),
+              "file": paths[-1] if paths else None, "files_done": max(len(paths) - 1, 0)})
 
     files_in = _sanitize_files(req.files or [])
     req.files = [FileItem(**f) for f in files_in]
@@ -177,7 +205,9 @@ def step(req: StepRequest):
             res = providers.generate(chain, agents.SYSTEM[req.stage], user_msg, json_mode=True,
                                      max_tokens=role["max_tokens"], thinking=role["thinking"],
                                      deadline=deadline, log=log,
-                                     attempt_timeout=role["attempt_timeout"])
+                                     attempt_timeout=role["attempt_timeout"],
+                                     on_progress=on_progress, cancel=cancel,
+                                     schema=agents.SCHEMAS[req.stage])
         except providers.AllModelsFailed as e:
             raise HTTPException(503, {"message": str(e), "events": events})
         tokens_in += res["tokens_in"]
@@ -225,6 +255,51 @@ def step(req: StepRequest):
         },
         "budget_usd": RUN_BUDGET_USD,
     }
+
+
+PATH_RE = re.compile(r'"path"\s*:\s*"([^"]+)"')
+
+
+@app.post("/api/step", dependencies=[Depends(require_passcode)])
+def step(req: StepRequest):
+    """Runs one council stage, streaming NDJSON events: log, progress, ping, then result or error.
+
+    Streaming keeps the dashboard live during multi-minute stages, and the heartbeat stops
+    corporate proxies from dropping a connection that would otherwise sit idle.
+    """
+    led = _prepare(req)
+    events, cancel = queue.Queue(), threading.Event()
+
+    def worker():
+        try:
+            events.put({"type": "result", "data": _run(req, led, events.put, cancel)})
+        except HTTPException as e:
+            events.put({"type": "error", "status": e.status_code, "detail": e.detail})
+        except providers.Cancelled:
+            pass
+        except Exception as e:  # never leave the client hanging
+            events.put({"type": "error", "status": 500, "detail": f"internal error: {e}"})
+        finally:
+            events.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def stream():
+        try:
+            while True:
+                try:
+                    item = events.get(timeout=10)
+                except queue.Empty:
+                    yield '{"type":"ping"}\n'
+                    continue
+                if item is None:
+                    return
+                yield json.dumps(item) + "\n"
+        finally:
+            cancel.set()  # stops a still-streaming model call if the client went away
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
 
 
 def _report_md(req: ZipRequest):

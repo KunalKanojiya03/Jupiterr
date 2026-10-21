@@ -22,13 +22,16 @@ def _secret():
 
 
 def _sign(ledger):
-    payload = json.dumps(ledger, sort_keys=True, separators=(",", ":")).encode()
+    # Canonicalise numbers first: the browser's JSON turns 0.0 into 0, which must not break the signature.
+    canon = {k: (f"{v:.6f}" if isinstance(v, (int, float)) and not isinstance(v, bool) else v)
+             for k, v in ledger.items()}
+    payload = json.dumps(canon, sort_keys=True, separators=(",", ":")).encode()
     return hmac.new(_secret(), payload, hashlib.sha256).hexdigest()
 
 
 def new_ledger():
     ledger = {"run_id": uuid.uuid4().hex[:12], "started": int(time.time()), "calls": 0,
-              "tokens_in": 0, "tokens_out": 0, "cost_usd": 0.0, "dev_rounds": 0}
+              "tokens_in": 0, "tokens_out": 0, "cost_usd": 0.0, "dev_rounds": 0, "feedback_rounds": 0}
     return ledger, _sign(ledger)
 
 
